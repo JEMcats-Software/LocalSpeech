@@ -1,0 +1,23 @@
+{
+  "name": "jemcats-localspeech",
+  "version": "1.0.0",
+  "description": "Run TTS models locally in a user friendly GUI on your Mac with an M-Series processor!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JEMcats-Software/LocalSpeech.git"
+  },
+  "keywords": [
+    "TTS",
+    "Text-To-Speech"
+  ],
+  "author": "JEMcats-Software",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JEMcats-Software/LocalSpeech/issues"
+  },
+  "homepage": "https://github.com/JEMcats-Software/LocalSpeech#readme"
+}

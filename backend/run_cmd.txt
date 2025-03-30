@@ -1,0 +1,10 @@
+./mac_exec \
+  --kokoro-model=USERDATAPATH/ExecFiles/kokoro-multi-lang-v1_0/model.onnx \
+  --kokoro-voices=USERDATAPATH/ExecFiles/kokoro-multi-lang-v1_0/voices.bin \
+  --kokoro-tokens=USERDATAPATH/ExecFiles/kokoro-multi-lang-v1_0/tokens.txt \
+  --kokoro-data-dir=USERDATAPATH/ExecFiles/kokoro-multi-lang-v1_0/espeak-ng-data \
+  --num-threads=6 \
+  --sid=voice \
+  --provider="providerMethod" \
+  --output-filename="USERDATAPATH/OutputFiles/outputfiletitle" \
+  'text'
