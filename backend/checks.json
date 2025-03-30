@@ -1,0 +1,7 @@
+[
+    "ls USERDATAPATH/ApplicationResources",
+    "ls USERDATAPATH/OutputFiles",
+    "ls USERDATAPATH/UserContent",
+    "ls USERDATAPATH/ApplicationResources/mac_exec",
+    "ls USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0"
+]

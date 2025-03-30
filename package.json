@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder -m --arm64 --publish never"
   },
   "repository": {
     "type": "git",
@@ -22,19 +22,23 @@
     "url": "https://github.com/JEMcats-Software/LocalSpeech/issues"
   },
   "homepage": "https://github.com/JEMcats-Software/LocalSpeech#readme",
-  "dependencies": {
-    "electron": "^35.1.2"
-  },
   "devDependencies": {
+    "electron": "^35.1.2",
     "electron-builder": "^24.6.0"
   },
   "build": {
     "appId": "com.jemcats-software.localspeech",
     "mac": {
+      "icon": "AppIcon.icns",
       "target": "dmg",
-      "arch": [
-        "arm64"
-      ]
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist"
     }
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security"
   }
 }
