@@ -4,7 +4,9 @@
   "description": "Run TTS models locally in a user friendly GUI on your Mac with an M-Series processor!",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "build": "electron-builder"
   },
   "repository": {
     "type": "git",
@@ -19,5 +21,20 @@
   "bugs": {
     "url": "https://github.com/JEMcats-Software/LocalSpeech/issues"
   },
-  "homepage": "https://github.com/JEMcats-Software/LocalSpeech#readme"
+  "homepage": "https://github.com/JEMcats-Software/LocalSpeech#readme",
+  "dependencies": {
+    "electron": "^35.1.2"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.6.0"
+  },
+  "build": {
+    "appId": "com.jemcats-software.localspeech",
+    "mac": {
+      "target": "dmg",
+      "arch": [
+        "arm64"
+      ]
+    }
+  }
 }

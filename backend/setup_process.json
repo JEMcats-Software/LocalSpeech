@@ -6,7 +6,7 @@
     [
         "wget https://github.com/JEMcats-Software/LocalSpeech/archive/refs/heads/main.zip",
         "unzip LocalSpeech.zip",
-        "mv ./LocalSpeech/mac_exec USERDATAPATH/ExecFiles/mac_exec"
+        "mv ./LocalSpeech/backend/mac_exec USERDATAPATH/ExecFiles/mac_exec"
     ],
     [
         "wget https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
