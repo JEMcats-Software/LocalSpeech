@@ -8,15 +8,21 @@
 <body>
     <nav>
         <ul class="nav-buttons">
-            <li><a href="index.html" class="nav-link link-active">Home</a></li>
-            <li><a href="text.html" class="nav-link">Text to Speech</a></li>
-            <li><a href="pdf.html" class="nav-link">PDF</a></li>
-            <li><a href="settings.html" class="nav-link">Settings</a></li>
+            <li><a id="home-link" class="nav-link link-active">Home</a></li>
+            <li><a id="text-link" class="nav-link">Text to Speech</a></li>
+            <li><a id="pdf-link" class="nav-link">PDF</a></li>
+            <li><a id="settings-link" class="nav-link">Settings</a></li>
         </ul>
     </nav>
 </body>
 <script>
-
+const urlParams = new URLSearchParams(window.location.search);
+const port = urlParams.get('port');
+console.log('Port:', port);
+document.getElementById('home-link').href = `index.html?port=${port}`;
+document.getElementById('text-link').href = `text.html?port=${port}`;
+document.getElementById('pdf-link').href = `pdf.html?port=${port}`;
+document.getElementById('settings-link').href = `settings.html?port=${port}`;
 </script>
 
 </html>
