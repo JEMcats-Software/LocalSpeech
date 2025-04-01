@@ -16,7 +16,7 @@
     "TTS",
     "Text-To-Speech"
   ],
-  "author": "JEMcats-Software",
+  "author": "JEMcats.Software",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/JEMcats-Software/LocalSpeech/issues"
@@ -24,22 +24,39 @@
   "homepage": "https://github.com/JEMcats-Software/LocalSpeech#readme",
   "devDependencies": {
     "electron": "^35.1.2",
-    "electron-builder": "^24.6.0"
+    "electron-builder": "^24.6.0",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.8.4",
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security",
+    "tar-fs": "^3.0.8"
   },
   "build": {
+    "files": [
+      "./UI/**",
+      "./backend/**",
+      "index.js",
+      "package.json",
+      "package-lock.json",
+      "./node_modules/**/*"
+    ],
+    "productName": "LocalSpeech",
     "appId": "com.jemcats-software.localspeech",
     "mac": {
       "icon": "AppIcon.icns",
       "target": "dmg",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "entitlements.mac.plist",
-      "entitlementsInherit": "entitlements.mac.plist"
+      "notarize": {
+        "teamId": "88SX8P69PX"
+      }
     }
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "axios": "^1.8.4",
     "express": "^4.21.2",
-    "fs": "^0.0.1-security"
+    "fs": "^0.0.1-security",
+    "tar-fs": "^3.0.8"
   }
 }

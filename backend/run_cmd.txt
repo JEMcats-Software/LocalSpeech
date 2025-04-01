@@ -5,8 +5,8 @@
   --kokoro-data-dir=USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0/espeak-ng-data \
   --kokoro-dict-dir=USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0/dict \
   --kokoro-lexicon=USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0/lexicon-us-en.txt,USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0/lexicon-zh.txt \
-  --num-threads=6 \
-  --sid=voice \
+  --num-threads=providerThreads \
+  --sid=voiceId \
   --provider="providerMethod" \
   --output-filename="USERDATAPATH/OutputFiles/outputfiletitle" \
   'text'

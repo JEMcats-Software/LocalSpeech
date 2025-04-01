@@ -1,22 +1,24 @@
 [
     [
-        "mkdir USERDATAPATH/ApplicationResources/",
-        "mkdir USERDATAPATH/OutputFiles/",
-        "mkdir USERDATAPATH/UserContent/"
+        "mkdir -p USERDATAPATH/ApplicationResources/ && rm -R USERDATAPATH/ApplicationResources && mkdir -p USERDATAPATH/ApplicationResources/",
+        "mkdir -p USERDATAPATH/OutputFiles/",
+        "mkdir -p USERDATAPATH/UserContent/",
+        "mkdir -p USERDATAPATH/Logs/"
     ],
     [
-        "wget https://github.com/JEMcats-Software/LocalSpeech/archive/refs/heads/main.zip",
-        "unzip LocalSpeech-main.zip",
-        "mv ./LocalSpeech-main/download_data/mac_exec USERDATAPATH/ApplicationResources/"
+        "wget -O main.zip https://github.com/JEMcats-Software/LocalSpeech/archive/refs/heads/main.zip",
+        "unzip -o main.zip",
+        "rm -f main.zip",
+        "mv -f ./LocalSpeech-main/download_data/mac_exec USERDATAPATH/ApplicationResources/"
     ],
     [
-        "wget https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
+        "wget -O kokoro-multi-lang-v1_0.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
         "tar xf kokoro-multi-lang-v1_0.tar.bz2",
-        "rm kokoro-multi-lang-v1_0.tar.bz2",
-        "mv ./kokoro-multi-lang-v1_0/ USERDATAPATH/ApplicationResources/"
+        "rm -f kokoro-multi-lang-v1_0.tar.bz2",
+        "mv -f ./kokoro-multi-lang-v1_0/ USERDATAPATH/ApplicationResources/"
     ],
     [
-        "mv ./LocalSpeech-main/download_data/voice_samples/ USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0/",
-        "rm ./LocalSpeech-main/"
+        "mv -f ./LocalSpeech-main/download_data/voice_samples/ USERDATAPATH/ApplicationResources/kokoro-multi-lang-v1_0/",
+        "rm -rf ./LocalSpeech-main/"
     ]
 ]
