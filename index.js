@@ -8,6 +8,7 @@ const os = require('os');
 const { log } = require('console');
 const AdmZip = require('adm-zip');
 const tar = require('tar');
+const WebSocket = require('ws');
 
 const server = express();
 let serverPort;
@@ -155,8 +156,7 @@ function checkInternetConnection() {
 
 function refreshData(urgent) {
     try {
-        const totalCommands = 16; // Total number of commands to run
-        let completedCommands = 0;
+        const totalCommands = 17; // Total number of commands to run
 
         // Create a modal popup with a progress bar using Electron
         let progressPopup;
@@ -330,9 +330,28 @@ function refreshData(urgent) {
             console.log("Finished: Remove LocalSpeech-main directory");
             await delay(1000);
             }
-
-            console.log("Setup completed!");
             updateProgressPopup(16, totalCommands);
+            console.log("Starting: Ensure configuration file exists");
+            const userContentDir = path.join(appResourcesPath, "../UserContent");
+            ensureDir(userContentDir);
+            const configFilePath = path.join(userContentDir, "config.json");
+            if (!fs.existsSync(configFilePath)) {
+                console.log("Configuration file not found. Creating a new one...");
+                const defaultConfig = {
+                    "voice":11,
+                    "threads":6,
+                    "provider":"coreml",
+                    "file_prefix":"tts_output_"
+                };
+                fs.writeFileSync(configFilePath, JSON.stringify(defaultConfig, null, 4));
+                console.log("Default configuration file created at:", configFilePath);
+            } else {
+                console.log("Configuration file already exists at:", configFilePath);
+            }
+            console.log("Finished: Ensure configuration file exists");
+            await delay(1000);
+            console.log("Setup completed!");
+            updateProgressPopup(17, totalCommands);
         };
 
         (async () => {
@@ -345,12 +364,49 @@ function refreshData(urgent) {
         })();
     } catch (error) {
         console.error("Failed to refresh data:", error);
+        if (urgent === true) {
+            dialog.showErrorBox("Error", "Failed to refresh data. Please check the logs for more details. App will quit when this is closed.");
+            app.quit();
+        } else {
+            dialog.showErrorBox("Error", "Failed to refresh data. Please check the logs for more details.");
+        }
     }
 }
 
 server.get('/refresh', (req, res) => {
-    res.send('Refresh endpoint hit');
+    res.send('Reffreshing data...');
 });
+
+
+
+server.post('/run_TTS', (req, res) => {
+    const { text } = req.body;
+    console.log(`Received TTS request: Text: ${text}`);
+    // Here you would typically run your TTS command with the provided parameters
+    res.send('TTS running, connect to the socket.');
+    const wss = new WebSocket.Server({ noServer: true });
+
+    server.on('upgrade', (request, socket, head) => {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    });
+
+    wss.on('connection', (ws) => {
+        console.log('WebSocket connection established.');
+
+        ws.on('message', (message) => {
+            console.log(`Received message: ${message}`);
+            
+        });
+
+        ws.on('close', () => {
+            console.log('WebSocket connection closed.');
+        });
+
+        ws.send('WebSocket server is ready.');
+    });
+})
 
 app.on('ready', createMainWindow);
 

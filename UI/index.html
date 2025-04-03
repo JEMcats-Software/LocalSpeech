@@ -2,7 +2,7 @@
 
 <head>
     <title>LocalSpeech</title>
-    <link rel="stylesheet" type="text/css" href="styles.css">
+    <link rel="stylesheet" type="text/css" href="css/styles.css">
 </head>
 
 <body>
@@ -15,14 +15,6 @@
         </ul>
     </nav>
 </body>
-<script>
-const urlParams = new URLSearchParams(window.location.search);
-const port = urlParams.get('port');
-console.log('Port:', port);
-document.getElementById('home-link').href = `index.html?port=${port}`;
-document.getElementById('text-link').href = `text.html?port=${port}`;
-document.getElementById('pdf-link').href = `pdf.html?port=${port}`;
-document.getElementById('settings-link').href = `settings.html?port=${port}`;
-</script>
+<script src="js/port.js"></script>
 
 </html>
