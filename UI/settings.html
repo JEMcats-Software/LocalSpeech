@@ -14,7 +14,95 @@
             <li><a id="settings-link" class="nav-link link-active">Settings</a></li>
         </ul>
     </nav>
+    <div class="settings-container">
+        <h1>Settings</h1>
+        <form id="settings-form">
+            <section class="basic-settings">
+                <h2>
+                    <button type="button" class="toggle-button" onclick="toggleSection('basic-settings')">▼</button>
+                    Basic Settings
+                </h2>
+                <div class="section-content">
+                    <label for="voice-select">Voice:</label>
+                    <select id="voice-select" name="voice">
+                        <!-- Options will be dynamically loaded from a JSON array -->
+                    </select>
+                    <button type="button" id="voice-test-button">Test Voice</button>
+                    <br>
+                    <label for="file-prefix">File Prefix:</label>
+                    <input type="text" id="file-prefix" name="file-prefix">
+                </div>
+            </section>
+
+            <section class="advanced-settings">
+                <h2>
+                    <button type="button" class="toggle-button" onclick="toggleSection('advanced-settings')">▼</button>
+                    Advanced Settings
+                </h2>
+                <div class="section-content">
+                    <label for="provider-threads">Provider Threads:</label>
+                    <input type="number" id="provider-threads" name="provider-threads" min="1">
+                    <br>
+                    <label for="provider-select">Provider:</label>
+                    <select id="provider-select" name="provider">
+                        <option value="coreml">CoreML</option>
+                        <option value="cpu">CPU</option>
+                        <option value="gpu">GPU</option>
+                    </select>
+                </div>
+            </section>
+
+            <script>
+                function toggleSection(sectionClass) {
+                    const section = document.querySelector(`.${sectionClass} .section-content`);
+                    const button = document.querySelector(`.${sectionClass} .toggle-button`);
+                    if (section.style.display === 'none' || section.style.display === '') {
+                        section.style.display = 'block';
+                        button.textContent = '▼';
+                    } else {
+                        section.style.display = 'none';
+                        button.textContent = '►';
+                    }
+                }
+
+                // Initialize sections as expanded
+                document.querySelectorAll('.section-content').forEach(section => {
+                    section.style.display = 'block';
+                });
+            </script>
+
+            <button type="submit" class="save-button" style="width: 100px; height: 45px; font-size: 20px;">Save</button>
+        </form>
+    </div>
+
 </body>
 <script src="js/port.js"></script>
+<script>
+    // Example JSON array for voices
+    let voices = [];
+    fetch(`http://localhost:${port}/get_voice_metadata`)
+        .then(response => response.json())
+        .then(data => {
+            voices = data;
+            const voiceSelect = document.getElementById('voice-select');
+
+            // Populate the voice dropdown
+            voices.forEach(voice => {
+                const option = document.createElement('option');
+                option.value = voice.id;
+                option.innerHTML = voice.name;
+                voiceSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching voices:', error);
+        });
+
+    // Add event listener for save button
+    document.getElementById('settings-form').addEventListener('submit', function (event) {
+        event.preventDefault();
+        alert('Settings saved!');
+    });
+</script>
 
 </html>

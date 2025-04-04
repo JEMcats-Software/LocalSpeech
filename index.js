@@ -284,27 +284,27 @@ function refreshData(urgent) {
             const kokoroPath = path.join(modifiedUserDir, "kokoro-multi-lang-v1_0.tar.bz2");
             await downloadFile("https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2", kokoroPath);
             console.log("Download completed. Verifying file integrity...");
-            
+
             if (fs.existsSync(kokoroPath) && fs.statSync(kokoroPath).size > 0) {
-            updateProgressPopup(11, totalCommands);
-            console.log("Finished: Download kokoro-multi-lang model");
-            await delay(1000);
-            
-            console.log("Starting: Extract kokoro-multi-lang model");
-            await new Promise((resolve, reject) => {
-                exec(`tar -xjf "${kokoroPath}" -C "${appResourcesPath}"`, (error, stdout, stderr) => {
-                if (error) {
-                    console.error("Extraction error:", stderr);
-                    return reject(error);
-                }
-                resolve();
+                updateProgressPopup(11, totalCommands);
+                console.log("Finished: Download kokoro-multi-lang model");
+                await delay(1000);
+
+                console.log("Starting: Extract kokoro-multi-lang model");
+                await new Promise((resolve, reject) => {
+                    exec(`tar -xjf "${kokoroPath}" -C "${appResourcesPath}"`, (error, stdout, stderr) => {
+                        if (error) {
+                            console.error("Extraction error:", stderr);
+                            return reject(error);
+                        }
+                        resolve();
+                    });
                 });
-            });
-            updateProgressPopup(12, totalCommands);
-            console.log("Finished: Extract kokoro-multi-lang model");
-            await delay(1000);
+                updateProgressPopup(12, totalCommands);
+                console.log("Finished: Extract kokoro-multi-lang model");
+                await delay(1000);
             } else {
-            throw new Error("Downloaded file is invalid or corrupted.");
+                throw new Error("Downloaded file is invalid or corrupted.");
             }
 
             console.log("Starting: Remove kokoro-multi-lang archive");
@@ -319,16 +319,16 @@ function refreshData(urgent) {
             const voiceSamplesDest = path.join(appResourcesPath, "kokoro-multi-lang-v1_0");
 
             if (fs.existsSync(voiceSamplesSrc)) {
-            fs.renameSync(voiceSamplesSrc, path.join(voiceSamplesDest, "voice_samples"));
-            updateProgressPopup(14, totalCommands);
-            console.log("Finished: Move voice samples");
-            await delay(1000);
+                fs.renameSync(voiceSamplesSrc, path.join(voiceSamplesDest, "voice_samples"));
+                updateProgressPopup(14, totalCommands);
+                console.log("Finished: Move voice samples");
+                await delay(1000);
 
-            console.log("Starting: Remove LocalSpeech-main directory");
-            fs.rmSync(path.join(modifiedUserDir, "LocalSpeech-main"), { recursive: true, force: true });
-            updateProgressPopup(15, totalCommands);
-            console.log("Finished: Remove LocalSpeech-main directory");
-            await delay(1000);
+                console.log("Starting: Remove LocalSpeech-main directory");
+                fs.rmSync(path.join(modifiedUserDir, "LocalSpeech-main"), { recursive: true, force: true });
+                updateProgressPopup(15, totalCommands);
+                console.log("Finished: Remove LocalSpeech-main directory");
+                await delay(1000);
             }
             updateProgressPopup(16, totalCommands);
             console.log("Starting: Ensure configuration file exists");
@@ -338,10 +338,10 @@ function refreshData(urgent) {
             if (!fs.existsSync(configFilePath)) {
                 console.log("Configuration file not found. Creating a new one...");
                 const defaultConfig = {
-                    "voice":11,
-                    "threads":6,
-                    "provider":"coreml",
-                    "file_prefix":"tts_output_"
+                    "voice": 11,
+                    "threads": 6,
+                    "provider": "coreml",
+                    "file_prefix": "tts_output_"
                 };
                 fs.writeFileSync(configFilePath, JSON.stringify(defaultConfig, null, 4));
                 console.log("Default configuration file created at:", configFilePath);
@@ -374,10 +374,39 @@ function refreshData(urgent) {
 }
 
 server.get('/refresh', (req, res) => {
-    res.send('Reffreshing data...');
+    res.send('Refreshing data...');
+    refreshData(false)
 });
 
+server.get('/get_voice_metadata', (req, res) => {
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    fs.readFile(path.join(modifiedUserDir, 'ApplicationResources/kokoro-multi-lang-v1_0/voice_samples/voices.json'), (err, data) => {
+        if (err) {
+            console.error(`Error reading voice sample metadata: ${err}`);
+            res.status(500).send('Error reading voice sample metadata');
+            return;
+        }
+        res.set('Content-Type', 'application/json');
+        res.send(data);
+    }
+    );
+})
 
+server.get('/get_voice_sample', (req, res) => {
+    const { id } = req.query;
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    console.log(`Received request for voice sample with ID: ${id}`);
+    fs.readFile(path.join(modifiedUserDir, 'ApplicationResources/kokoro-multi-lang-v1_0/voice_samples', `${id}.wav`), (err, data) => {
+        if (err) {
+            console.error(`Error reading voice sample: ${err}`);
+            res.status(500).send('Error reading voice sample');
+            return;
+        }
+        res.set('Content-Type', 'audio/wav');
+        res.send(data);
+    }
+    );
+})
 
 server.post('/run_TTS', (req, res) => {
     const { text } = req.body;
@@ -397,7 +426,7 @@ server.post('/run_TTS', (req, res) => {
 
         ws.on('message', (message) => {
             console.log(`Received message: ${message}`);
-            
+
         });
 
         ws.on('close', () => {
@@ -409,12 +438,6 @@ server.post('/run_TTS', (req, res) => {
 })
 
 app.on('ready', createMainWindow);
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
-});
 
 app.on('activate', () => {
     if (!mainWindow) {
