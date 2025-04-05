@@ -22,14 +22,17 @@
                     <button type="button" class="toggle-button" onclick="toggleSection('basic-settings')">▼</button>
                     Basic Settings
                 </h2>
-                <div class="section-content">
-                    <label for="voice-select">Voice:</label>
-                    <select id="voice-select" name="voice">
-                        <!-- Options will be dynamically loaded from a JSON array -->
-                    </select>
-                    <button type="button" id="voice-test-button">Test Voice</button>
+                <div class="section-content" style="align-items: center;">
+                    <div style="display: flex; align-items: center; justify-content: center;">
+                        <label for="voice-select" style="margin-right: 5px;">Voice:</label>
+                        <select id="voice-select" name="voice" style="margin-right: 10px;">
+                            <!-- Options will be dynamically loaded from a JSON array -->
+                        </select>
+                        <img id="voice_test_button" onclick="playVoiceTest()" src="svg/play.svg" alt="Play"
+                            style="width: 40px; height: 40px; cursor: pointer;">
+                    </div>
                     <br>
-                    <label for="file-prefix">File Prefix:</label>
+                    <label style="margin-right: 5px;" for="file-prefix">File Prefix:</label>
                     <input type="text" id="file-prefix" name="file-prefix">
                 </div>
             </section>
@@ -40,10 +43,10 @@
                     Advanced Settings
                 </h2>
                 <div class="section-content">
-                    <label for="provider-threads">Provider Threads:</label>
+                    <label style="margin-right: 5px;" for="provider-threads">Provider Threads:</label>
                     <input type="number" id="provider-threads" name="provider-threads" min="1">
                     <br>
-                    <label for="provider-select">Provider:</label>
+                    <label style="margin-right: 5px;" for="provider-select">Provider:</label>
                     <select id="provider-select" name="provider">
                         <option value="coreml">CoreML</option>
                         <option value="cpu">CPU</option>
@@ -77,31 +80,84 @@
 
 </body>
 <script src="js/port.js"></script>
+<script src="js/backend_communication.js"></script>
 <script>
+    let testVoice;
+    let testVoiceID;
     // Example JSON array for voices
-    let voices = [];
-    fetch(`http://localhost:${port}/get_voice_metadata`)
-        .then(response => response.json())
-        .then(data => {
-            voices = data;
-            const voiceSelect = document.getElementById('voice-select');
+    async function loadVoices() {
+        let voices = [];
+        voices = await communicator.get_voice_metadata();
+        console.log(voices);
+        const voiceSelect = document.getElementById('voice-select');
 
-            // Populate the voice dropdown
-            voices.forEach(voice => {
-                const option = document.createElement('option');
-                option.value = voice.id;
-                option.innerHTML = voice.name;
-                voiceSelect.appendChild(option);
-            });
-        })
-        .catch(error => {
-            console.error('Error fetching voices:', error);
+        // Populate the voice dropdown
+        voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.id;
+            option.innerHTML = voice.name;
+            voiceSelect.appendChild(option);
         });
+    };
+
+    loadVoices()
+
+    function playVoiceTest() {
+        const selectedVoice = document.getElementById('voice-select').value;
+        testVoiceID = selectedVoice;
+        document.getElementById('voice_test_button').src = "svg/loading.svg";
+        testVoice = new Audio(`http://localhost:${port}/get_voice_sample?id=${selectedVoice}`);
+        testVoice.onended = function () {
+            document.getElementById('voice_test_button').src = "svg/play.svg";
+            document.getElementById('voice_test_button').onclick = playVoiceTest;
+        };
+        setTimeout(() => {
+            testVoice.play();
+            document.getElementById('voice_test_button').src = "svg/pause.svg";
+            document.getElementById('voice_test_button').onclick = pauseVoiceTest;
+        }, 500);
+    }
+    function pauseVoiceTest() {
+        testVoice.pause();
+        document.getElementById('voice_test_button').src = "svg/play.svg";
+        document.getElementById('voice_test_button').onclick = resumeVoiceTest;
+    }
+    function resumeVoiceTest() {
+        const selectedVoice = document.getElementById('voice-select').value;
+        if (testVoiceID === selectedVoice) {
+            document.getElementById('voice_test_button').src = "svg/loading.svg";
+            setTimeout(() => {
+                document.getElementById('voice_test_button').src = "svg/pause.svg";
+                document.getElementById('voice_test_button').onclick = pauseVoiceTest;
+            }, 500);
+            testVoice.play();
+        } else {
+            playVoiceTest();
+        }
+    }
+
+    async function loadExistingConfig() {
+        const data = await communicator.usr_get_config();
+        document.getElementById('file-prefix').value = data.file_prefix;
+        document.getElementById('provider-threads').value = data.threads;
+        document.getElementById('provider-select').value = data.provider;
+        document.getElementById('voice-select').value = data.voice;
+    }
+
+    loadExistingConfig();
 
     // Add event listener for save button
     document.getElementById('settings-form').addEventListener('submit', function (event) {
         event.preventDefault();
-        alert('Settings saved!');
+
+        const config = {
+            file_prefix: document.getElementById('file-prefix').value,
+            threads: document.getElementById('provider-threads').value,
+            provider: document.getElementById('provider-select').value,
+            voice: document.getElementById('voice-select').value
+        };
+
+        response = communicator.save_usr_config(config);
     });
 </script>
 

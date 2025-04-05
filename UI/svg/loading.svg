@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Updated SVG with slitted, spinning ring -->
+<svg width="800px" height="800px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="gradientStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4C9A6D" />
+            <stop offset="100%" stop-color="#3C7F75" />
+        </linearGradient>
+        <style type="text/css">
+            <![CDATA[
+                .spinner {
+                    transform-origin: center;
+                    animation: spin 1.5s linear infinite;
+                }
+                @keyframes spin {
+                    100% { transform: rotate(360deg); }
+                }
+            ]]>
+        </style>
+    </defs>
+
+    <!-- Pause symbol remains static -->
+    <g id="pause">
+        <line x1="10" y1="9" x2="10" y2="15" stroke="url(#gradientStroke)" stroke-width="2" stroke-linecap="round"/>
+        <line x1="14" y1="9" x2="14" y2="15" stroke="url(#gradientStroke)" stroke-width="2" stroke-linecap="round"/>
+    </g>
+
+    <!-- Spinning slitted ring -->
+    <g id="spinner" class="spinner">
+        <circle cx="12" cy="12" r="9" 
+                        stroke="url(#gradientStroke)" 
+                        stroke-width="2" 
+                        fill="none" 
+                        stroke-linecap="round"
+                        stroke-dasharray="40 16"/>
+    </g>
+</svg>

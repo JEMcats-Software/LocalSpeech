@@ -5,7 +5,7 @@
     <link rel="stylesheet" type="text/css" href="css/styles.css">
 </head>
 
-<body>
+<body style="align-items: center;" >
     <nav>
         <ul class="nav-buttons">
             <li><a id="home-link" class="nav-link link-active">Home</a></li>
@@ -14,7 +14,25 @@
             <li><a id="settings-link" class="nav-link">Settings</a></li>
         </ul>
     </nav>
+    <h1>Welcome to LocalSpeech!</h1>
+    <h2>What will you read today?</h2>
+    <div style="display: flex; align-items: center; justify-content: center;">
+        <input type="text" id="text_for_tts" placeholder="Enter text here" style="width: 300px; height: 50px; margin-right: 10px;">
+        <button id="tts-button" style="height: 50px;"><img id="tts-button-icon" style="height: 40px;" src="svg/paper_plane_black.svg" alt="Send"></button>
+    </div>
 </body>
 <script src="js/port.js"></script>
-
+<script>
+    document.getElementById('tts-button').addEventListener('click', function() {
+        const text = document.getElementById('text_for_tts').value;
+        if (text) {
+            document.getElementById('tts-button-icon').src = 'svg/loading_black.svg';
+            setTimeout(() => {
+                window.location = `text.html??port=${port}&text=${text}`;
+            }, 500);
+        } else {
+            alert("Text is required!");
+        }
+    });
+</script>
 </html>

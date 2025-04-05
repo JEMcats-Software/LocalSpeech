@@ -11,6 +11,7 @@ const tar = require('tar');
 const WebSocket = require('ws');
 
 const server = express();
+server.use(express.json()); // Middleware to parse JSON requests
 let serverPort;
 let userDir = app.getPath('userData');
 userDir = userDir.replace(' ', '\\ ');
@@ -406,6 +407,40 @@ server.get('/get_voice_sample', (req, res) => {
         res.send(data);
     }
     );
+})
+
+server.get('/usr_get_config', (req, res) => {
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    fs.readFile(path.join(modifiedUserDir, 'UserContent/config.json'), (err, data) => {
+        if (err) {
+            console.error(`Error reading voice User Config: ${err}`);
+            res.status(500).send('Error reading User Config');
+            return;
+        }
+        res.set('Content-Type', 'application/json');
+        res.send(data);
+    }
+    );
+})
+
+server.post('/save_usr_config', (req, res) => {
+    const { voice, threads, provider, file_prefix } = req.body;
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const newConfig = {
+        voice,
+        threads,
+        provider,
+        file_prefix
+    }
+    const configFilePath = path.join(modifiedUserDir, 'UserContent/config.json');
+    fs.writeFile(configFilePath, JSON.stringify(newConfig, null, 4), (err) => {
+        if (err) {
+            console.error(`Error saving user config: ${err}`);
+            res.status(500).send('Error saving user config');
+            return;
+        }
+        res.send('User config saved successfully');
+    });
 })
 
 server.post('/run_TTS', (req, res) => {
