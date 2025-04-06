@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build": "electron-builder -m --arm64 --publish never"
+    "build-deploy": "electron-builder -m --arm64 --publish never && xcrun notarytool submit dist/LocalSpeech-1.0.0-arm64.dmg --keychain-profile jemcats-dev-icloud-pass --wait",
+    "build-dev": "electron-builder -m --arm64 --publish never"
   },
   "repository": {
     "type": "git",
@@ -47,10 +48,7 @@
       "icon": "AppIcon.icns",
       "target": "dmg",
       "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "notarize": {
-        "teamId": "88SX8P69PX"
-      }
+      "gatekeeperAssess": false
     }
   },
   "dependencies": {
@@ -58,8 +56,10 @@
     "axios": "^1.8.4",
     "express": "^4.21.2",
     "fs": "^0.0.1-security",
+    "sudo-prompt": "^9.2.1",
     "tar": "^6.1.11",
     "tar-fs": "^3.0.8",
+    "uuid": "^11.1.0",
     "ws": "^8.18.1"
   }
 }

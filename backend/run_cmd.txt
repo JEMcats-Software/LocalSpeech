@@ -8,5 +8,5 @@ USERDATAPATH/ApplicationResources/mac_exec \
   --num-threads=providerThreads \
   --sid=voiceId \
   --provider="providerMethod" \
-  --output-filename="USERDATAPATH/OutputFiles/outputfiletitle" \
+  --output-filename=USERDATAPATH/OutputFiles/outputfiletitle.wav \
   'text'

@@ -17,18 +17,33 @@
     <h1>Welcome to LocalSpeech!</h1>
     <h2>What will you read today?</h2>
     <div style="display: flex; align-items: center; justify-content: center;">
-        <input type="text" id="text_for_tts" placeholder="Enter text here" style="width: 300px; height: 50px; margin-right: 10px;">
-        <button id="tts-button" style="height: 50px;"><img id="tts-button-icon" style="height: 40px;" src="svg/paper_plane_black.svg" alt="Send"></button>
+        <div style="display: flex; flex-direction: column; align-items: flex-start; width: 90%; margin-right: 5px;">
+            <textarea id="text_for_tts" placeholder="Enter text here" maxlength="4000"
+            style="width: 100%; height: 50px; resize: vertical;"></textarea>
+            <span id="word-counter" style="align-self: flex-end; font-size: 12px; color: gray;">0/4000</span>
+        </div>
+        <script>
+            const textArea = document.getElementById('text_for_tts');
+            const wordCounter = document.getElementById('word-counter');
+
+            textArea.addEventListener('input', () => {
+            const wordCount = textArea.value.length;
+            wordCounter.textContent = `${wordCount}/4000`;
+            });
+        </script>
+        <button id="tts-button" style="width: 50px; height: 50px; margin-left: 5px;"><img id="tts-button-icon"
+                style="height: 40px;" src="svg/paper_plane_black.svg" alt="Send"></button>
     </div>
 </body>
 <script src="js/port.js"></script>
+
 <script>
     document.getElementById('tts-button').addEventListener('click', function() {
         const text = document.getElementById('text_for_tts').value;
         if (text) {
             document.getElementById('tts-button-icon').src = 'svg/loading_black.svg';
             setTimeout(() => {
-                window.location = `text.html??port=${port}&text=${text}`;
+                window.location = `text.html?port=${port}&text=${text}`;
             }, 500);
         } else {
             alert("Text is required!");

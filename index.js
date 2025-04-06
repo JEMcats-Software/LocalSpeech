@@ -2,17 +2,21 @@ const { app, BrowserWindow, dialog } = require('electron');
 const express = require('express');
 const fs = require('fs');
 const axios = require('axios');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
 const { log } = require('console');
 const AdmZip = require('adm-zip');
 const tar = require('tar');
 const WebSocket = require('ws');
+const { v4: uuidv4 } = require('uuid');
+const http = require('http');
+const { json } = require('stream/consumers');
 
-const server = express();
-server.use(express.json()); // Middleware to parse JSON requests
-let serverPort;
+const expressApp = express();
+expressApp.use(express.json()); // Middleware to parse JSON requests
+const server = http.createServer(expressApp);
+let expressAppPort;
 let userDir = app.getPath('userData');
 userDir = userDir.replace(' ', '\\ ');
 
@@ -58,8 +62,8 @@ console.log("Resolved user data path:", userDir);
 console.log("This is a test")
 
 server.listen(0, function () {
-    serverPort = this.address().port;
-    console.log(`Express server is running on http://localhost:${serverPort}`);
+    expressAppPort = this.address().port;
+    console.log(`Express expressApp is running on http://localhost:${expressAppPort}`);
     startElectronApp();
 });
 
@@ -115,7 +119,7 @@ function createMainWindow() {
         webPreferences: { nodeIntegration: true },
     });
 
-    const uiPath = `file://${__dirname}/UI/index.html?port=${serverPort}`;
+    const uiPath = `file://${__dirname}/UI/index.html?port=${expressAppPort}`;
     console.log("Loading UI from:", uiPath);
     mainWindow.loadURL(uiPath);
 
@@ -140,7 +144,7 @@ function checkInternetConnection() {
                 buttons: ['No', 'Yes'],
                 defaultId: 1,
                 title: 'Refresh',
-                message: 'Do you want to retrieve the latest data from our server? Declining will use the previously downloaded data.',
+                message: 'Do you want to retrieve the latest data from our server? Declining will use any previously downloaded data.',
             }).then((response) => {
                 if (response.response === 1) {
                     console.log('User selected Yes, Refreshing Now...');
@@ -350,6 +354,12 @@ function refreshData(urgent) {
                 console.log("Configuration file already exists at:", configFilePath);
             }
             console.log("Finished: Ensure configuration file exists");
+            console.log("Starting: Make mac_exec executable");
+            const macExecPath = path.join(appResourcesPath, "mac_exec");
+            fs.chmodSync(macExecPath, '755'); // Equivalent to chmod +x
+            updateProgressPopup(16, totalCommands);
+            console.log("Finished: Make mac_exec executable");
+            
             await delay(1000);
             console.log("Setup completed!");
             updateProgressPopup(17, totalCommands);
@@ -374,12 +384,12 @@ function refreshData(urgent) {
     }
 }
 
-server.get('/refresh', (req, res) => {
+expressApp.get('/refresh', (req, res) => {
     res.send('Refreshing data...');
     refreshData(false)
 });
 
-server.get('/get_voice_metadata', (req, res) => {
+expressApp.get('/get_voice_metadata', (req, res) => {
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     fs.readFile(path.join(modifiedUserDir, 'ApplicationResources/kokoro-multi-lang-v1_0/voice_samples/voices.json'), (err, data) => {
         if (err) {
@@ -393,7 +403,7 @@ server.get('/get_voice_metadata', (req, res) => {
     );
 })
 
-server.get('/get_voice_sample', (req, res) => {
+expressApp.get('/get_voice_sample', (req, res) => {
     const { id } = req.query;
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     console.log(`Received request for voice sample with ID: ${id}`);
@@ -409,7 +419,41 @@ server.get('/get_voice_sample', (req, res) => {
     );
 })
 
-server.get('/usr_get_config', (req, res) => {
+expressApp.get('/get_output_audio', (req, res) => {
+    const { id } = req.query;
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const configFilePath = path.join(modifiedUserDir, 'UserContent/config.json');
+    const userConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+    console.log(`Received request for output with ID: ${id}`);
+
+    if (!id) {
+        console.error('Error: No ID provided in the request.');
+        res.status(400).send('Error: No ID provided in the request.');
+        return;
+    }
+
+    const filePath = path.join(modifiedUserDir, 'OutputFiles', `${userConfig.file_prefix}${id}.wav`);
+    console.log(`Attempting to read file at path: ${filePath}`);
+
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            if (err.code === 'ENOENT') {
+                console.error(`Error: File not found at path: ${filePath}`);
+                res.status(404).send('Error: File not found');
+            } else {
+                console.error(`Error reading output file at path: ${filePath}, Error: ${err.message}`);
+                res.status(500).send('Error reading output');
+            }
+            return;
+        }
+
+        console.log(`Successfully read file at path: ${filePath}`);
+        res.set('Content-Type', 'audio/wav');
+        res.send(data);
+    });
+});
+
+expressApp.get('/usr_get_config', (req, res) => {
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     fs.readFile(path.join(modifiedUserDir, 'UserContent/config.json'), (err, data) => {
         if (err) {
@@ -423,7 +467,7 @@ server.get('/usr_get_config', (req, res) => {
     );
 })
 
-server.post('/save_usr_config', (req, res) => {
+expressApp.post('/save_usr_config', (req, res) => {
     const { voice, threads, provider, file_prefix } = req.body;
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     const newConfig = {
@@ -443,34 +487,103 @@ server.post('/save_usr_config', (req, res) => {
     });
 })
 
-server.post('/run_TTS', (req, res) => {
+expressApp.post('/run_TTS', (req, res) => {
     const { text } = req.body;
+    if (typeof text === 'undefined') {
+        console.error("Text field is undefined in the request body");
+        return res.status(400).send("Error: 'text' property is required in the request body.");
+    }
     console.log(`Received TTS request: Text: ${text}`);
     // Here you would typically run your TTS command with the provided parameters
-    res.send('TTS running, connect to the socket.');
+
+    const ttsuuid = uuidv4();
+    res.send(JSON.stringify({ CMD: "RUNTTSREADY", WSID: ttsuuid }));
+    const wsPath = `/${ttsuuid}`;
+    console.log(`WebSocket app will use path: ${wsPath}`);
+
     const wss = new WebSocket.Server({ noServer: true });
 
-    server.on('upgrade', (request, socket, head) => {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request);
-        });
+    server.once('upgrade', (request, socket, head) => {
+        const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
+        if (pathname === wsPath) {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+                wss.emit('connection', ws, request);
+            });
+        } else {
+            socket.destroy();
+        }
     });
 
     wss.on('connection', (ws) => {
+        console.log(userDir);
         console.log('WebSocket connection established.');
+
+        const modifiedUserDir = userDir.replace('\\ ', ' ');
+        const configFilePath = path.join(modifiedUserDir, 'UserContent/config.json');
+        const runCmdFilePath = path.join(__dirname, 'backend/run_cmd.txt');
+
+        try {
+            const userConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+            let runCMD = fs.readFileSync(runCmdFilePath, 'utf8');
+
+            runCMD = runCMD.replaceAll(/USERDATAPATH/g, userDir)
+                           .replaceAll(/providerThreads/g, userConfig.threads)
+                           .replaceAll(/voiceId/g, userConfig.voice)
+                           .replaceAll(/providerMethod/g, userConfig.provider)
+                           .replaceAll(/outputfiletitle/g, userConfig.file_prefix + ttsuuid)
+                           .replaceAll(/text/g, text);
+
+            const process = spawn(runCMD, { shell: true });
+
+            process.stdout.on('data', (data) => {
+                const log = data.toString();
+                const lines = log.split('\n');
+                lines.forEach((line) => {
+                    const progressMatch = line.match(/progress=([\d.]+)/);
+                    if (progressMatch) {
+                        const progressValue = parseFloat(progressMatch[1]);
+                        ws.send(JSON.stringify({ status: "progress", progress: progressValue }));
+                        console.log(`Progress: ${progressValue}`);
+                    } else if (line.trim()) {
+                        ws.send(JSON.stringify({ status: "log", message: line.trim() }));
+                        console.log(`STDOUT: ${line.trim()}`);
+                    }
+                });
+            });
+
+            process.stderr.on('data', (data) => {
+                const errorLog = data.toString();
+                if (errorLog.includes("Saved to")) {
+                    ws.send(JSON.stringify({ status: "success" }));
+                    ws.close();
+                }
+                if (!errorLog.includes("Context leak detected, msgtracer returned -1")) {
+                    ws.send(JSON.stringify({ status: "error", message: errorLog }));
+                    console.error(`STDERR: ${errorLog}`);
+                }
+            });
+
+            process.on('close', (code) => {
+                console.log(`Process exited with code ${code}`);
+                ws.close(); // Close WebSocket connection when the process ends
+            });
+        } catch (error) {
+            console.error('Error during WebSocket connection handling:', error);
+            ws.send(`Error: ${error.message}`);
+            ws.close();
+        }
 
         ws.on('message', (message) => {
             console.log(`Received message: ${message}`);
-
         });
 
         ws.on('close', () => {
             console.log('WebSocket connection closed.');
         });
 
-        ws.send('WebSocket server is ready.');
+        ws.send('WebSocket app is ready.');
     });
-})
+});
 
 app.on('ready', createMainWindow);
 
