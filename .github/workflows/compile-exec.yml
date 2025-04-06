@@ -20,7 +20,7 @@ jobs:
       - name: Create and switch to new branch
         run: |
           git checkout -b exec-build
-          git push origin exec-build
+          git push https://<PAT>@github.com/JEMcats-Software/LocalSpeech.git exec-build
 
       - name: Clone sherpa-onnx repository
         run: git clone https://github.com/k2-fsa/sherpa-onnx
@@ -41,9 +41,9 @@ jobs:
           cp sherpa-onnx/bin/sherpa-onnx-offline-tts download_data/mac_exec
           git add download_data/mac_exec
           git commit -m "Update mac_exec with latest sherpa-onnx-offline-tts"
-          git push origin dev
+          git push https://<PAT>@github.com/JEMcats-Software/LocalSpeech.git dev
 
       - name: Remove exec-build branch
         run: |
           git branch -D exec-build
-          git push origin --delete exec-build
+          git push https://<PAT>@github.com/JEMcats-Software/LocalSpeech.git --delete exec-build
