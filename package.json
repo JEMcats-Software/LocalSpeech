@@ -1,12 +1,12 @@
 {
   "name": "jemcats-localspeech",
-  "version": "v1.0.1-beta",
+  "version": "v1.0.2-beta",
   "description": "Run TTS models locally in a user friendly GUI on your Mac with an M-Series processor!",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build-deploy": "electron-builder -m --arm64 --publish never && xcrun notarytool submit dist/LocalSpeech-1.0.1-beta-arm64.dmg --keychain-profile jemcats-dev-icloud-pass --wait",
+    "build-deploy": "electron-builder -m --arm64 --publish never && xcrun notarytool submit dist/LocalSpeech-1.0.2-beta-arm64.dmg --keychain-profile jemcats-dev-icloud-pass --wait",
     "build-dev": "electron-builder -m --arm64 --publish never"
   },
   "repository": {
