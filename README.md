@@ -1,3 +1,24 @@
 ![LocalSpeech Logo](./assets/icon.png)
 # LocalSpeech
-Its not finished yet lol.
+LocalSpeech by JEMcats-Software aims to read text for you locally without using any cloud based processing. Currently we are offering a pre built DMG for MacOS with Apple Silicon.
+
+## To-Do List
+- [ ] Add PDF Reader
+- [ ] Add Window Support
+- [ ] Add MacOS Intel Support
+- [ ] Add Exec Compiler Workflow
+- [x] Launch v1.0.0 Beta
+
+## Support
+For questions open a discussion.
+
+For support, reports, or requests open an issue.
+
+## Contributing
+Fork the ``dev`` branch.
+
+Make your changes in your fork.
+
+Fill out the pull request form.
+
+Open a pull request.

@@ -9,7 +9,8 @@
         "wget -O main.zip https://github.com/JEMcats-Software/LocalSpeech/archive/refs/heads/main.zip",
         "unzip -o main.zip",
         "rm -f main.zip",
-        "mv -f ./LocalSpeech-main/download_data/mac_exec USERDATAPATH/ApplicationResources/"
+        "mv -f ./LocalSpeech-main/download_data/mac_exec USERDATAPATH/ApplicationResources/",
+        "chmod +x USERDATAPATH/ApplicationResources/"
     ],
     [
         "wget -O kokoro-multi-lang-v1_0.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
