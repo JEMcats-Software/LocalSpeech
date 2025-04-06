@@ -7,15 +7,17 @@ on:
 
 jobs:
   build-and-execute:
+    permissions:
+      contents: write
     runs-on: macos-15
+    env:
+      ARCH: arm64
     defaults:
       run:
         shell: bash
-    env:
-      ARCH: arm64
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Create and switch to new branch
         run: |
