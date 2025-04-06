@@ -27,7 +27,7 @@
     "adm-zip": "^0.5.16",
     "axios": "^1.8.4",
     "electron": "^35.1.4",
-    "electron-builder": "^24.6.0",
+    "electron-builder": "^26.0.12",
     "express": "^4.21.2",
     "fs": "^0.0.1-security",
     "tar": "^6.1.11",
