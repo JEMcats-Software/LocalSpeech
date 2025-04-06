@@ -10,7 +10,7 @@ jobs:
     runs-on: macos-15
     defaults:
       run:
-        shell: zsh
+        shell: bash
     env:
       ARCH: arm64
     steps:
