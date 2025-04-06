@@ -6,46 +6,42 @@ on:
             - main
 
 jobs:
-  build-and-execute:
-    permissions:
-      contents: write
-    runs-on: macos-15
-    env:
-      ARCH: arm64
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    build-and-execute:
+        permissions:
+            contents: write
+        runs-on: macos-15
+        env:
+            ARCH: arm64
+        defaults:
+            run:
+                shell: bash
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
 
-      - name: Create and switch to new branch
-        run: |
-          git checkout -b exec-build
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/JEMcats-Software/LocalSpeech.git exec-build
+            - name: Clone sherpa-onnx repository
+              run: git clone https://github.com/k2-fsa/sherpa-onnx
 
-      - name: Clone sherpa-onnx repository
-        run: git clone https://github.com/k2-fsa/sherpa-onnx
+            - name: Build sherpa-onnx
+              run: |
+                    cd sherpa-onnx
+                    mkdir build
+                    cd build
+                    cmake -DCMAKE_BUILD_TYPE=Release ..
+                    make -j6
 
-      - name: Build sherpa-onnx
-        run: |
-          cd sherpa-onnx
-          mkdir build
-          cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make -j6
-
-      - name: Move sherpa-onnx-offline-tts to dev branch
-        run: |
-          git fetch origin dev
-          git checkout dev
-          mkdir -p download_data
-          cp sherpa-onnx/bin/sherpa-onnx-offline-tts download_data/mac_exec
-          git add download_data/mac_exec
-          git commit -m "Update mac_exec with latest sherpa-onnx-offline-tts"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/JEMcats-Software/LocalSpeech.git dev
-
-      - name: Remove exec-build branch
-        run: |
-          git branch -D exec-build
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/JEMcats-Software/LocalSpeech.git --delete exec-build
+            - name: Commit compiled file to main branch
+              run: |
+                    # Switch back to repository root (if needed)
+                    cd $GITHUB_WORKSPACE
+                    # Create the download_data directory if it doesn't exist
+                    mkdir -p download_data
+                    # Copy compiled binary (adjust path if necessary)
+                    cp sherpa-onnx/build/bin/sherpa-onnx-offline-tts download_data/mac_exec
+                    # Configure git user
+                    git config user.name "github-actions"
+                    git config user.email "github-actions@github.com"
+                    # Add and commit the new file 
+                    git add download_data/mac_exec
+                    git commit -m "Update mac_exec with latest sherpa-onnx-offline-tts" || echo "No changes to commit"
+                    git push https://${{ secrets.GITHUB_TOKEN }}@github.com/JEMcats-Software/LocalSpeech.git main
