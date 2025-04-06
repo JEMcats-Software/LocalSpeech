@@ -3,23 +3,17 @@
 LocalSpeech by JEMcats-Software aims to read text for you locally without using any cloud based processing. Currently we are offering a pre built DMG for MacOS with Apple Silicon.
 
 ## To-Do List
-- [ ] Figure Out Compiling The Sherpa-Onnx Exec For ARM64
 - [ ] Add PDF Reader
 - [ ] Add Window Support
 - [ ] Add MacOS Intel Support
-- [ ] Add Exec Compiler Workflow
+- [x] Figure Out Compiling The Sherpa-Onnx Exec For ARM64
+- [x] Add Exec Compiler Workflow
 - [x] Launch v1.0.0 Beta
 
 ## Support
 For questions open a discussion.
 
 For support, reports, or requests open an issue.
-
-## Usage
-You **MUST** have Rosetta installed if you are on a Mac with Apple Silicon. To do so please run this command in terminal.
-```
-/usr/sbin/softwareupdate --install-rosetta
-```
 
 ## Contributing
 Fork the ``dev`` branch.
