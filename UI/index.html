@@ -43,7 +43,8 @@
         if (text) {
             document.getElementById('tts-button-icon').src = 'svg/loading_black.svg';
             setTimeout(() => {
-                window.location = `text.html?port=${port}&text=${text}`;
+                const encodedText = encodeURIComponent(text);
+                window.location = `text.html?port=${port}&text=${encodedText}`;
             }, 500);
         } else {
             alert("Text is required!");

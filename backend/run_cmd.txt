@@ -9,4 +9,4 @@ USERDATAPATH/ApplicationResources/mac_exec \
   --sid=voiceId \
   --provider="providerMethod" \
   --output-filename=USERDATAPATH/OutputFiles/outputfiletitle.wav \
-  'text'
+  ''text''
