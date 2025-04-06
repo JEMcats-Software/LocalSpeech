@@ -12,6 +12,7 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const { json } = require('stream/consumers');
+const rateLimit = require('express-rate-limit');  // Added for rate limiting
 
 const expressApp = express();
 expressApp.use(express.json()); // Middleware to parse JSON requests
@@ -19,6 +20,13 @@ const server = http.createServer(expressApp);
 let expressAppPort;
 let userDir = app.getPath('userData');
 userDir = userDir.replace(' ', '\\ ');
+
+// Add a rate limiter for all endpoints (100 requests per minute)
+const limiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute window
+    max: 100
+});
+expressApp.use(limiter);
 
 const downloadFile = async (url, dest) => {
     const writer = fs.createWriteStream(dest);
@@ -384,6 +392,11 @@ function refreshData(urgent) {
     }
 }
 
+// Helper to escape shell arguments
+function escapeShellArg(arg) {
+    return "'" + arg.replace(/'/g, "'\\''") + "'";
+}
+
 expressApp.get('/refresh', (req, res) => {
     res.send('Refreshing data...');
     refreshData(false)
@@ -405,6 +418,10 @@ expressApp.get('/get_voice_metadata', (req, res) => {
 
 expressApp.get('/get_voice_sample', (req, res) => {
     const { id } = req.query;
+    // Validate id contains only safe characters
+    if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
+        return res.status(400).send('Invalid id');
+    }
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     console.log(`Received request for voice sample with ID: ${id}`);
     fs.readFile(path.join(modifiedUserDir, 'ApplicationResources/kokoro-multi-lang-v1_0/voice_samples', `${id}.wav`), (err, data) => {
@@ -415,12 +432,14 @@ expressApp.get('/get_voice_sample', (req, res) => {
         }
         res.set('Content-Type', 'audio/wav');
         res.send(data);
-    }
-    );
-})
+    });
+});
 
 expressApp.get('/get_output_audio', (req, res) => {
     const { id } = req.query;
+    if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
+        return res.status(400).send('Invalid id');
+    }
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     const configFilePath = path.join(modifiedUserDir, 'UserContent/config.json');
     const userConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
@@ -494,8 +513,6 @@ expressApp.post('/run_TTS', (req, res) => {
         return res.status(400).send("Error: 'text' property is required in the request body.");
     }
     console.log(`Received TTS request: Text: ${text}`);
-    // Here you would typically run your TTS command with the provided parameters
-
     const ttsuuid = uuidv4();
     res.send(JSON.stringify({ CMD: "RUNTTSREADY", WSID: ttsuuid }));
     const wsPath = `/${ttsuuid}`;
@@ -526,12 +543,14 @@ expressApp.post('/run_TTS', (req, res) => {
             const userConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
             let runCMD = fs.readFileSync(runCmdFilePath, 'utf8');
 
+            // Escape text input before command substitution
+            const safeText = escapeShellArg(text);
             runCMD = runCMD.replaceAll(/USERDATAPATH/g, userDir)
                            .replaceAll(/providerThreads/g, userConfig.threads)
                            .replaceAll(/voiceId/g, userConfig.voice)
                            .replaceAll(/providerMethod/g, userConfig.provider)
                            .replaceAll(/outputfiletitle/g, userConfig.file_prefix + ttsuuid)
-                           .replaceAll(/text/g, text);
+                           .replaceAll(/text/g, safeText);
 
             const process = spawn(runCMD, { shell: true });
 

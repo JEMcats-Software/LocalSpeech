@@ -55,6 +55,7 @@
     "adm-zip": "^0.5.16",
     "axios": "^1.8.4",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
     "fs": "^0.0.1-security",
     "sudo-prompt": "^9.2.1",
     "tar": "^7.4.3",
