@@ -4,14 +4,10 @@ const fs = require('fs');
 const axios = require('axios');
 const { exec, spawn } = require('child_process');
 const path = require('path');
-const os = require('os');
-const { log } = require('console');
 const AdmZip = require('adm-zip');
-const tar = require('tar');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
-const { json } = require('stream/consumers');
 const rateLimit = require('express-rate-limit');  // Added for rate limiting
 
 const expressApp = express();
