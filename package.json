@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build-deploy": "electron-builder -m --arm64 --publish never && xcrun notarytool submit dist/LocalSpeech-1.0.0-arm64.dmg --keychain-profile jemcats-dev-icloud-pass --wait",
+    "build-deploy": "electron-builder -m --arm64 --publish never && xcrun notarytool submit dist/LocalSpeech-1.0.0-beta-arm64.dmg --keychain-profile jemcats-dev-icloud-pass --wait",
     "build-dev": "electron-builder -m --arm64 --publish never"
   },
   "repository": {
