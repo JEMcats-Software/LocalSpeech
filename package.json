@@ -1,6 +1,6 @@
 {
   "name": "jemcats-localspeech",
-  "version": "v1.0.0 Beta",
+  "version": "v1.0.0-beta",
   "description": "Run TTS models locally in a user friendly GUI on your Mac with an M-Series processor!",
   "main": "index.js",
   "scripts": {
