@@ -6,6 +6,9 @@ LocalSpeech by JEMcats-Software aims to read text for you locally without using 
 - [ ] Add PDF Reader
 - [ ] Add Window Support
 - [ ] Add MacOS Intel Support
+- [ ] Add Light + Dark Modes
+- [ ] Add Website
+- [ ] Write Documentation
 - [x] Figure Out Compiling The Sherpa-Onnx Exec For ARM64
 - [x] Add Exec Compiler Workflow
 - [x] Launch v1.0.0 Beta
