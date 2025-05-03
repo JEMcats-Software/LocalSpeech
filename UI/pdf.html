@@ -14,9 +14,294 @@
             <li><a id="settings-link" class="nav-link">Settings</a></li>
         </ul>
     </nav>
-    <h1>Coming Soon!</h1>
-    <h2>PDF Reader is not yet implemented. Stay tooned.</h2>
+    <div class="pdf-upload-container">
+        <h2>Upload a PDF</h2>
+        <form id="pdf-upload-form">
+            <div id="pdf-drop-area" class="pdf-drop-area">
+                <span id="pdf-drop-text">Drag &amp; drop a PDF here or <span class="pdf-drop-browse">browse</span></span>
+                <input type="file" id="pdf-file" accept="application/pdf" style="display:none;">
+            </div>
+        </form>
+    </div>
+    <div class="pdf-list-container">
+        <h2>Uploaded PDFs</h2>
+        <div id="pdf-list" class="pdf-fs-list"></div>
+    </div>
+    <script>
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        async function showCustomDialog(message, isInput) {
+            return new Promise((resolve) => {
+                const dialog = document.createElement('div');
+                dialog.className = 'custom-dialog';
+
+                const dialogMessage = document.createElement('p');
+                dialogMessage.textContent = message;
+
+                let inputElem = null;
+                if (isInput) {
+                    inputElem = document.createElement('input');
+                    inputElem.type = 'text';
+                    inputElem.style.marginBottom = '12px';
+                    inputElem.style.fontSize = '16px';
+                    inputElem.style.width = '100%';
+                    inputElem.autofocus = true;
+                    dialog.appendChild(dialogMessage);
+                    dialog.appendChild(inputElem);
+                } else {
+                    dialog.appendChild(dialogMessage);
+                }
+
+                const confirmButton = document.createElement('button');
+                confirmButton.textContent = 'Yes';
+                confirmButton.addEventListener('click', () => {
+                    if (isInput) {
+                        resolve(inputElem.value.trim());
+                    } else {
+                        resolve(true);
+                    }
+                    document.body.removeChild(dialog);
+                });
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'No';
+                cancelButton.addEventListener('click', () => {
+                    if (isInput) {
+                        resolve(null);
+                    } else {
+                        resolve(false);
+                    }
+                    document.body.removeChild(dialog);
+                });
+
+                dialog.appendChild(confirmButton);
+                dialog.appendChild(cancelButton);
+                document.body.appendChild(dialog);
+
+                if (inputElem) {
+                    inputElem.focus();
+                    inputElem.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            confirmButton.click();
+                        }
+                    });
+                }
+            });
+        }
+
+        async function handleOpen(event, id) {
+            event.preventDefault();
+            alert(1);
+        }
+        async function renamePDF(event, id) {
+            event.preventDefault();
+            const name = await showCustomDialog("Enter a new name for the PDF:", true);
+            if (name) {
+                await communicator.renamePDF(id, name);
+                loadPDFList();
+            }
+        }
+        async function deletePDF(event, id) {
+            event.preventDefault();
+            const userResponse = await showCustomDialog('Are you sure you want to delete this PDF?', false);
+            if (userResponse) {
+                await communicator.deletePDF(id);
+                loadPDFList();
+            }
+        }
+        async function startProcessing(event, id) {
+            event.preventDefault();
+            const userResponse = await showCustomDialog('Are you sure you want to start processing? Once started you cannot stop.', false);
+            if (userResponse) {
+                await communicator.start_pdf_processing(id)
+                loadPDFList();
+            }
+        }
+
+        async function loadPDFList() {
+            const pdfListContainer = document.getElementById('pdf-list');
+            pdfListContainer.innerHTML = ''; // Clear existing list
+
+            try {
+                const pdfIndex = await communicator.get_pdf_index();
+                pdfIndex.forEach(pdf => {
+                    const item = document.createElement('div');
+                    item.className = 'pdf-fs-item';
+
+                    // Create elements
+                    const icon = document.createElement('span');
+                    icon.className = 'pdf-fs-icon';
+                    icon.textContent = '📄';
+
+                    const title = document.createElement('span');
+                    title.className = 'pdf-fs-title';
+                    title.textContent = pdf.title || pdf;
+
+                    const meta = document.createElement('span');
+                    meta.className = 'pdf-fs-meta';
+                    meta.textContent = `${pdf.size ? formatBytes(pdf.size) : ''} ${pdf.length ? '- ' + pdf.length + ' pages' : ''} ${pdf.processingStatus ? '- Status: ' + pdf.processingStatus : ''}`;
+
+                    const renameBtn = document.createElement('img');
+                    renameBtn.src = 'svg/rename.svg';
+                    renameBtn.alt = 'Rename';
+                    renameBtn.className = 'pdf-fs-button';
+                    renameBtn.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        renamePDF(event, pdf.id);
+                    });
+
+                    const deleteBtn = document.createElement('img');
+                    deleteBtn.src = 'svg/trash.svg';
+                    deleteBtn.alt = 'Delete';
+                    deleteBtn.className = 'pdf-fs-button';
+                    deleteBtn.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        deletePDF(event, pdf.id);
+                    });
+
+                    // Insert process button if needed
+                    if (pdf.processingStatus === 'Not Processed') {
+                        const processButton = document.createElement('img');
+                        processButton.alt = 'Process';
+                        processButton.classList.add('pdf-fs-button');
+                        processButton.src = 'svg/circle-x.svg';
+                        processButton.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            startProcessing(event, pdf.id);
+                        });
+                        item.appendChild(icon);
+                        item.appendChild(title);
+                        item.appendChild(processButton);
+                        item.appendChild(meta);
+                        item.appendChild(renameBtn);
+                        item.appendChild(deleteBtn);
+                    } else if (pdf.processingStatus && pdf.processingStatus.includes('/') || pdf.processingStatus === 'Processing') {
+                        const processButton = document.createElement('img');
+                        processButton.alt = 'Processing...';
+                        processButton.classList.add('pdf-fs-button');
+                        processButton.src = 'svg/loading.svg';
+                        processButton.addEventListener('click', (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            alert('Processing in progress. Closing the app is okay, DO NOT QUIT THE APP!');
+                        });
+                        item.appendChild(icon);
+                        item.appendChild(title);
+                        item.appendChild(processButton);
+                        item.appendChild(meta);
+                        item.appendChild(renameBtn);
+                        item.appendChild(deleteBtn);
+                    } else {
+                        item.appendChild(icon);
+                        item.appendChild(title);
+                        item.appendChild(meta);
+                        item.appendChild(renameBtn);
+                        item.appendChild(deleteBtn);
+                    }
+
+                    // Only trigger open if the user clicks the item background, not the buttons
+                    item.addEventListener('click', (event) => {
+                        // Only trigger if not clicking a button
+                        if (
+                            event.target === item ||
+                            event.target === icon ||
+                            event.target === title ||
+                            event.target === meta
+                        ) {
+                            handleOpen(event, pdf.id);
+                        }
+                    });
+
+                    pdfListContainer.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Error fetching PDF index:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadPDFList);
+
+        // Drag and drop upload logic
+        const dropArea = document.getElementById('pdf-drop-area');
+        const fileInput = document.getElementById('pdf-file');
+        const dropText = document.getElementById('pdf-drop-text');
+
+        // Highlight drop area on drag
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropArea.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.classList.add('dragover');
+                dropText.textContent = "Drop your PDF here";
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropArea.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropArea.classList.remove('dragover');
+                dropText.innerHTML = 'Drag &amp; drop a PDF here or <span class="pdf-drop-browse">browse</span>';
+            }, false);
+        });
+
+        dropArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handlePDFUpload(files[0]);
+            }
+        });
+
+        // Click to open file dialog
+        dropArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        dropArea.querySelector('.pdf-drop-browse').addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.click();
+        });
+
+        // Handle file selection
+        fileInput.addEventListener('change', function () {
+            if (fileInput.files.length > 0) {
+                handlePDFUpload(fileInput.files[0]);
+            }
+        });
+
+        function handlePDFUpload(file) {
+            if (!file || file.type !== "application/pdf") {
+                alert('Please select a PDF file to upload.');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('pdf', file);
+
+            communicator.uploadPDF(formData, file.name).then(response => {
+                if (response) {
+                    console.log('Upload response:', response);
+                    loadPDFList();
+                    fileInput.value = '';
+                }
+            });
+        }
+        setInterval(() => {
+            loadPDFList();
+        }, 30000);
+    </script>
 </body>
 <script src="js/port.js"></script>
+<script src="js/backend_communication.js"></script>
+<script src="js/tools.js"></script>
 
 </html>

@@ -9,6 +9,8 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const rateLimit = require('express-rate-limit');  // Added for rate limiting
+const e = require('express');
+const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
 const expressApp = express();
 expressApp.use(express.json()); // Middleware to parse JSON requests
@@ -134,10 +136,50 @@ function createMainWindow() {
         }
     });
 
+    // Instead of quitting, hide the window on close
+    mainWindow.on('close', (event) => {
+        if (!app.isQuitting) {
+            event.preventDefault();
+            mainWindow.hide();
+        }
+    });
+
     mainWindow.on('closed', () => {
         mainWindow = null;
     });
 }
+
+// Handle quit confirmation
+let isQuitConfirmed = false;
+
+app.on('before-quit', (event) => {
+    if (!isQuitConfirmed) {
+        event.preventDefault();
+        dialog.showMessageBox({
+            type: 'question',
+            buttons: ['Cancel', 'Quit'],
+            defaultId: 1,
+            cancelId: 0,
+            title: 'Confirm Quit',
+            message: 'Are you sure you want to quit LocalSpeech? If you are prosessing a PDF, it will be interrupted and you will need to delete the file and start over!',
+        }).then(result => {
+            if (result.response === 1) {
+                isQuitConfirmed = true;
+                app.quit();
+            }
+            // else, do nothing (cancel quit)
+        });
+    }
+});
+
+// On macOS, re-show window when dock icon is clicked
+app.on('activate', () => {
+    if (!mainWindow) {
+        createMainWindow();
+    } else {
+        mainWindow.show();
+    }
+});
 
 function checkInternetConnection() {
     axios.get('https://jemcats.software/test_connection.json')
@@ -363,7 +405,7 @@ function refreshData(urgent) {
             fs.chmodSync(macExecPath, '755'); // Equivalent to chmod +x
             updateProgressPopup(16, totalCommands);
             console.log("Finished: Make mac_exec executable");
-            
+
             await delay(1000);
             console.log("Setup completed!");
             updateProgressPopup(17, totalCommands);
@@ -542,11 +584,11 @@ expressApp.post('/run_TTS', (req, res) => {
             // Escape text input before command substitution
             const safeText = escapeShellArg(text);
             runCMD = runCMD.replaceAll(/USERDATAPATH/g, userDir)
-                           .replaceAll(/providerThreads/g, userConfig.threads)
-                           .replaceAll(/voiceId/g, userConfig.voice)
-                           .replaceAll(/providerMethod/g, userConfig.provider)
-                           .replaceAll(/outputfiletitle/g, userConfig.file_prefix + ttsuuid)
-                           .replaceAll(/text/g, safeText);
+                .replaceAll(/providerThreads/g, userConfig.threads)
+                .replaceAll(/voiceId/g, userConfig.voice)
+                .replaceAll(/providerMethod/g, userConfig.provider)
+                .replaceAll(/outputfiletitle/g, userConfig.file_prefix + ttsuuid)
+                .replaceAll(/text/g, safeText);
 
             const process = spawn(runCMD, { shell: true });
 
@@ -600,10 +642,217 @@ expressApp.post('/run_TTS', (req, res) => {
     });
 });
 
-app.on('ready', createMainWindow);
+expressApp.put('/upload_pdf', (req, res) => {
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
+    const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
+    ensureDir(pdfDir);
+    ensureDir(pdfAudDir);
 
-app.on('activate', () => {
-    if (!mainWindow) {
-        createMainWindow();
+    const metadataFilePath = path.join(pdfDir, 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+        fs.writeFileSync(metadataFilePath, JSON.stringify({}, null, 4));
     }
+
+    const filePath = path.join(pdfDir, `${uuidv4()}.pdf`);
+    const writeStream = fs.createWriteStream(filePath);
+
+    req.pipe(writeStream);
+
+    writeStream.on('finish', () => {
+        const fileStats = fs.statSync(filePath);
+        const originalFileName = req.headers['x-original-filename'] || 'Unknown';
+        const fileSize = fileStats.size;
+
+        // Extract page count and update metadata inside the promise
+        const data = new Uint8Array(fs.readFileSync(filePath));
+        pdfjsLib.getDocument(data).promise.then((doc) => {
+            const pageCount = doc.numPages;
+
+            const metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+            metadata[path.basename(filePath)] = {
+                fileName: originalFileName,
+                fileSize: fileSize,
+                processingStatus: "Not Processed",
+                length: pageCount
+            };
+
+            fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+
+            console.log(`PDF uploaded and saved to: ${filePath}`);
+            res.status(200).send('PDF uploaded successfully');
+        }).catch((err) => {
+            console.error(`Error processing PDF: ${err}`);
+            res.status(500).send('Error processing PDF');
+        });
+    });
+
+    writeStream.on('error', (err) => {
+        console.error(`Error saving PDF: ${err}`);
+        res.status(500).send('Error saving PDF');
+    });
 });
+
+expressApp.get('/get_pdf_index', (req, res) => {
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
+    const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
+    ensureDir(pdfDir);
+    ensureDir(pdfAudDir);
+
+    const metadataFilePath = path.join(pdfDir, 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+        fs.writeFileSync(metadataFilePath, JSON.stringify({}, null, 4));
+    }
+
+    fs.readdir(pdfDir, (err, files) => {
+        if (err) {
+            console.error(`Error reading PDF directory: ${err}`);
+            return res.status(500).send('Error reading PDF directory');
+        }
+        const pdfFiles = files.filter(file => file.endsWith('.pdf'));
+        const metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+
+        let pdfFilesWithMetadata = [];
+
+        pdfFiles.forEach(file => {
+            const fileMetadata = metadata[file];
+            pdfFilesWithMetadata.push({ id: file, title: fileMetadata.fileName, size: fileMetadata.fileSize, length: fileMetadata.length, processingStatus: fileMetadata.processingStatus });
+        })
+
+        res.json(pdfFilesWithMetadata);
+    });
+})
+
+expressApp.post('/rename_pdf', (req, res) => {
+    const { newName, id } = req.body;
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
+    const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
+    ensureDir(pdfDir);
+    ensureDir(pdfAudDir);
+
+    const metadataFilePath = path.join(pdfDir, 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+        fs.writeFileSync(metadataFilePath, JSON.stringify({}, null, 4));
+    }
+
+    let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+    metadata[id].fileName = newName;
+    fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+    res.sendStatus(200, 'Done!');
+})
+
+expressApp.delete('/delete_pdf', (req, res) => {
+    const { id } = req.query;
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
+    const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
+    ensureDir(pdfDir);
+    ensureDir(pdfAudDir);
+
+    const metadataFilePath = path.join(pdfDir, 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+        fs.writeFileSync(metadataFilePath, JSON.stringify({}, null, 4));
+    }
+
+    let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+    delete metadata[id];
+    fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+
+    const filePath = path.join(pdfDir, id);
+    if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`Deleted PDF file: ${filePath}`);
+    } else {
+        console.error(`PDF file not found: ${filePath}`);
+    }
+
+    res.sendStatus(200, 'Done!');
+})
+
+expressApp.get('/start_pdf_processing', (req, res) => {
+    const { id } = req.query;
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
+    const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
+    ensureDir(pdfDir);
+    ensureDir(pdfAudDir);
+
+    const metadataFilePath = path.join(pdfDir, 'metadata.json');
+    if (!fs.existsSync(metadataFilePath)) {
+        fs.writeFileSync(metadataFilePath, JSON.stringify({}, null, 4));
+    }
+
+    const outputDir = path.join(pdfAudDir, id.replace('.pdf', ""));
+    ensureDir(outputDir);
+
+    const pdfPath = path.join(pdfDir, id);
+    try {
+        // Read PDF file into a Uint8Array
+        const data = new Uint8Array(fs.readFileSync(pdfPath));
+        pdfjsLib.getDocument({ data }).promise.then(async (pdfDoc) => {
+            let fullText = "";
+            // Process each page sequentially to reduce memory usage
+            for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+                const page = await pdfDoc.getPage(pageNum);
+                const content = await page.getTextContent();
+                // Concatenate text items with a space (or newline if preferred)
+                const pageText = content.items.map(item => item.str).join(" ");
+                fullText += pageText + "\n";
+            }
+
+            // Now, break the text into chunks of 4000 characters.
+            // If the 4000th character falls mid-sentence, backtrack to the last period.
+            const maxChunkSize = 4000;
+            const chunks = [];
+            let index = 0;
+            while (index < fullText.length) {
+                // Assume we take maxChunkSize characters first
+                let chunk = fullText.substring(index, index + maxChunkSize);
+                // If this is not the last chunk, try to backtrack to the last period.
+                if (index + maxChunkSize < fullText.length) {
+                    const lastPeriod = chunk.lastIndexOf(".");
+                    // Only backtrack if a period exists and it is not too close to the start.
+                    if (lastPeriod > 100) {
+                        chunk = fullText.substring(index, index + lastPeriod + 1);
+                        index += lastPeriod + 1;
+                    } else {
+                        index += maxChunkSize;
+                    }
+                } else {
+                    // Last chunk
+                    index = fullText.length;
+                }
+                chunks.push(chunk);
+            }
+
+            // Write the chunks to a file in the output directory
+            const chunksFilePath = path.join(outputDir, "pdf_chunks.json");
+            fs.writeFileSync(chunksFilePath, JSON.stringify(chunks, null, 4));
+            console.log("PDF text processing completed. Chunks saved at:", chunksFilePath);
+        }).catch((err) => {
+            console.error("Error processing PDF document:", err);
+        });
+    } catch (err) {
+        console.error("Failed to read PDF file:", err);
+    }
+
+    let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+    metadata[id].processingStatus = "Processing";
+    fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+
+    try {
+        const chunksFilePath = path.join(outputDir, "pdf_chunks.json");
+        if (fs.existsSync(chunksFilePath)) {
+            const chunksData = JSON.parse(fs.readFileSync(chunksFilePath, "utf8"));
+            const count = chunksData.length;
+            console.log(`PDF processing complete - Total chunks: ${count}`);
+            res.status(200).send(`{"chuncks":${count}}`);
+        }
+    } catch (err) {
+        console.error("Error counting PDF chunks:", err);
+    }
+})
+
+app.on('ready', createMainWindow);

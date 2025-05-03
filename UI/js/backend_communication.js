@@ -98,3 +98,84 @@ communicator.TTSrun = async function (uuid, output_txt, output_audio, output_div
         return null;
     }
 }
+communicator.uploadPDF = async function (formData, fileName) {
+    try {
+        const response = await fetch(`http://localhost:${port}/upload_pdf`, { // <-- fixed endpoint
+            method: 'PUT',
+            headers: {
+                'x-original-filename': fileName
+            },
+            body: formData
+        });
+        if (response.ok) {
+            alert('PDF uploaded successfully!');
+        } else {
+            alert('Failed to upload PDF.');
+        }
+        return response;
+    } catch (error) {
+        console.error('Error uploading PDF:', error);
+        alert('An error occurred while uploading the PDF.');
+        return null;
+    }
+}
+communicator.get_pdf_index = async function () {
+    try {
+        const response = await fetch(`http://localhost:${port}/get_pdf_index`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching voices:', error);
+        return null;
+    }
+}
+communicator.renamePDF = async function (id, newName) {
+    try {
+        const response = await fetch(`http://localhost:${port}/rename_pdf`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id, newName })
+        });
+        if (response.ok) {
+            alert('PDF renamed successfully!');
+        } else {
+            alert('Failed to rename PDF.');
+        }
+        return response;
+    } catch (error) {
+        console.error('Error renaming PDF:', error);
+        alert('An error occurred while renaming the PDF.');
+        return null;
+    }
+}
+
+communicator.deletePDF = async function (id) {
+    try {
+        const response = await fetch(`http://localhost:${port}/delete_pdf?id=${id}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            alert('PDF deleted successfully!');
+        } else {
+            alert('Failed to delete PDF.');
+        }
+        return response;
+    } catch (error) {
+        console.error('Error deleting PDF:', error);
+        alert('An error occurred while deleting the PDF.');
+        return null;
+    }
+}
+
+communicator.start_pdf_processing = async function (id) {
+    try {
+        const response = await fetch(`http://localhost:${port}/start_pdf_processing?id=${id}`);
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching voices:', error);
+        return null;
+    }
+}
