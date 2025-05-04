@@ -3,12 +3,14 @@
 LocalSpeech by JEMcats-Software aims to read text for you locally without using any cloud based processing. Currently we are offering a pre built DMG for MacOS with Apple Silicon.
 
 ## To-Do List
-- [ ] Add PDF Reader
-- [ ] Add Window Support
+- [ ] Add Windows Support
 - [ ] Add MacOS Intel Support
 - [ ] Add Light + Dark Modes
-- [ ] Add Website
 - [ ] Write Documentation
+- [ ] Add Word by Word for PDF Reader
+- [ ] Add Exporting PDF + Processing
+- [ ] Add PDF Reader
+- [x] Add Website
 - [x] Figure Out Compiling The Sherpa-Onnx Exec For ARM64
 - [x] Add Exec Compiler Workflow
 - [x] Launch v1.0.0 Beta
