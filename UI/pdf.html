@@ -117,7 +117,7 @@
         }
         async function startProcessing(event, id) {
             event.preventDefault();
-            const userResponse = await showCustomDialog('Are you sure you want to start processing? Once started you cannot stop.', false);
+            const userResponse = await showCustomDialog('Are you sure you want to start processing? Once started you cannot stop. This may take many hours depending on your computer and the length of your file.', false);
             if (userResponse) {
                 await communicator.start_pdf_processing(id)
                 loadPDFList();

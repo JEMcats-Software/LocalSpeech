@@ -9,7 +9,6 @@ const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const rateLimit = require('express-rate-limit');  // Added for rate limiting
-const e = require('express');
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 
 const expressApp = express();
@@ -161,11 +160,11 @@ app.on('before-quit', (event) => {
             defaultId: 1,
             cancelId: 0,
             title: 'Confirm Quit',
-            message: 'Are you sure you want to quit LocalSpeech? If you are prosessing a PDF, it will be interrupted and you will need to delete the file and start over!',
+            message: 'Are you sure you want to quit LocalSpeech? If you are processing a PDF, it will be interrupted and you will need to delete the file and start over!',
         }).then(result => {
             if (result.response === 1) {
                 isQuitConfirmed = true;
-                app.quit();
+                app.exit(0); // Use app.exit to force quit
             }
             // else, do nothing (cancel quit)
         });
@@ -343,7 +342,7 @@ function refreshData(urgent) {
 
                 console.log("Starting: Extract kokoro-multi-lang model");
                 await new Promise((resolve, reject) => {
-                    exec(`tar -xjf "${kokoroPath}" -C "${appResourcesPath}"`, (error, stdout, stderr) => {
+                    exec(`tar -xjf "${kokoroPath}" -C "${appResourcesPath}"`, (error, _stdout, stderr) => {
                         if (error) {
                             console.error("Extraction error:", stderr);
                             return reject(error);
@@ -435,12 +434,12 @@ function escapeShellArg(arg) {
     return "'" + arg.replace(/'/g, "'\\''") + "'";
 }
 
-expressApp.get('/refresh', (req, res) => {
+expressApp.get('/refresh', (_req, res) => {
     res.send('Refreshing data...');
     refreshData(false)
 });
 
-expressApp.get('/get_voice_metadata', (req, res) => {
+expressApp.get('/get_voice_metadata', (_req, res) => {
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     fs.readFile(path.join(modifiedUserDir, 'ApplicationResources/kokoro-multi-lang-v1_0/voice_samples/voices.json'), (err, data) => {
         if (err) {
@@ -510,7 +509,7 @@ expressApp.get('/get_output_audio', (req, res) => {
     });
 });
 
-expressApp.get('/usr_get_config', (req, res) => {
+expressApp.get('/usr_get_config', (_req, res) => {
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     fs.readFile(path.join(modifiedUserDir, 'UserContent/config.json'), (err, data) => {
         if (err) {
@@ -672,7 +671,7 @@ expressApp.put('/upload_pdf', (req, res) => {
             const metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
             metadata[path.basename(filePath)] = {
                 fileName: originalFileName,
-                fileSize: fileSize,
+                fileSize: fileSize, // Only PDF file size at upload
                 processingStatus: "Not Processed",
                 length: pageCount
             };
@@ -693,7 +692,7 @@ expressApp.put('/upload_pdf', (req, res) => {
     });
 });
 
-expressApp.get('/get_pdf_index', (req, res) => {
+expressApp.get('/get_pdf_index', (_req, res) => {
     const modifiedUserDir = userDir.replace('\\ ', ' ');
     const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
     const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
@@ -716,8 +715,38 @@ expressApp.get('/get_pdf_index', (req, res) => {
         let pdfFilesWithMetadata = [];
 
         pdfFiles.forEach(file => {
-            const fileMetadata = metadata[file];
-            pdfFilesWithMetadata.push({ id: file, title: fileMetadata.fileName, size: fileMetadata.fileSize, length: fileMetadata.length, processingStatus: fileMetadata.processingStatus });
+            const fileMetadata = metadata[file] || {};
+            // Calculate total size: PDF + chunks.json + all audio files for this PDF
+            let totalSize = 0;
+            // PDF file size
+            const pdfPath = path.join(pdfDir, file);
+            if (fs.existsSync(pdfPath)) {
+                totalSize += fs.statSync(pdfPath).size;
+            }
+            // Chunks file size
+            const pdfIdNoExt = file.replace(/\.pdf$/, '');
+            const chunkDir = path.join(pdfAudDir, pdfIdNoExt);
+            const chunksFilePath = path.join(chunkDir, "pdf_chunks.json");
+            if (fs.existsSync(chunksFilePath)) {
+                totalSize += fs.statSync(chunksFilePath).size;
+            }
+            // Audio files size
+            if (fs.existsSync(chunkDir)) {
+                const audioFiles = fs.readdirSync(chunkDir).filter(f => f.endsWith('.wav'));
+                for (const audioFile of audioFiles) {
+                    const audioPath = path.join(chunkDir, audioFile);
+                    if (fs.existsSync(audioPath)) {
+                        totalSize += fs.statSync(audioPath).size;
+                    }
+                }
+            }
+            pdfFilesWithMetadata.push({
+                id: file,
+                title: fileMetadata.fileName,
+                size: totalSize,
+                length: fileMetadata.length,
+                processingStatus: fileMetadata.processingStatus
+            });
         })
 
         res.json(pdfFilesWithMetadata);
@@ -768,6 +797,14 @@ expressApp.delete('/delete_pdf', (req, res) => {
         console.error(`PDF file not found: ${filePath}`);
     }
 
+    // Also remove audio and chunks for this PDF
+    const pdfIdNoExt = id.replace(/\.pdf$/, '');
+    const chunkDir = path.join(pdfAudDir, pdfIdNoExt);
+    if (fs.existsSync(chunkDir)) {
+        fs.rmSync(chunkDir, { recursive: true, force: true });
+        console.log(`Deleted PDF audio/chunks directory: ${chunkDir}`);
+    }
+
     res.sendStatus(200, 'Done!');
 })
 
@@ -805,54 +842,233 @@ expressApp.get('/start_pdf_processing', (req, res) => {
             // Now, break the text into chunks of 4000 characters.
             // If the 4000th character falls mid-sentence, backtrack to the last period.
             const maxChunkSize = 4000;
+            // Remove unwanted characters like \n and excessive whitespace
+            let cleanText = fullText.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
             const chunks = [];
             let index = 0;
-            while (index < fullText.length) {
-                // Assume we take maxChunkSize characters first
-                let chunk = fullText.substring(index, index + maxChunkSize);
+            while (index < cleanText.length) {
+                // Take up to maxChunkSize characters
+                let chunk = cleanText.substring(index, index + maxChunkSize);
                 // If this is not the last chunk, try to backtrack to the last period.
-                if (index + maxChunkSize < fullText.length) {
+                if (index + maxChunkSize < cleanText.length) {
                     const lastPeriod = chunk.lastIndexOf(".");
                     // Only backtrack if a period exists and it is not too close to the start.
                     if (lastPeriod > 100) {
-                        chunk = fullText.substring(index, index + lastPeriod + 1);
+                        chunk = cleanText.substring(index, index + lastPeriod + 1);
                         index += lastPeriod + 1;
                     } else {
                         index += maxChunkSize;
                     }
                 } else {
                     // Last chunk
-                    index = fullText.length;
+                    index = cleanText.length;
                 }
-                chunks.push(chunk);
+                chunks.push(chunk.trim());
             }
 
             // Write the chunks to a file in the output directory
             const chunksFilePath = path.join(outputDir, "pdf_chunks.json");
             fs.writeFileSync(chunksFilePath, JSON.stringify(chunks, null, 4));
             console.log("PDF text processing completed. Chunks saved at:", chunksFilePath);
+
+            // Update metadata and respond only after chunking is done
+            let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+            metadata[id].processingStatus = "Processing";
+            fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+
+            try {
+                if (fs.existsSync(chunksFilePath)) {
+                    const chunksData = JSON.parse(fs.readFileSync(chunksFilePath, "utf8"));
+                    const count = chunksData.length;
+                    console.log(`PDF processing complete - Total chunks: ${count}`);
+                    res.status(200).send(`{"chunks":${count}}`);
+                    const configFilePath = path.join(modifiedUserDir, 'UserContent/config.json');
+                    const runCmdFilePath = path.join(__dirname, 'backend/run_cmd.txt');
+                    // Process chunks sequentially
+                    (async () => {
+                        for (let index = 0; index < chunksData.length; index++) {
+                            const text = chunksData[index];
+                            try {
+                                const userConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+                                let runCMD = fs.readFileSync(runCmdFilePath, 'utf8');
+
+                                // Escape text input before command substitution
+                                const safeText = escapeShellArg(text);
+                                runCMD = runCMD.replaceAll('OutputFiles/', `OutputFiles/PDF/${id.replace('.pdf', "")}/`)
+                                    .replaceAll(/USERDATAPATH/g, userDir)
+                                    .replaceAll(/providerThreads/g, userConfig.threads)
+                                    .replaceAll(/voiceId/g, userConfig.voice)
+                                    .replaceAll(/providerMethod/g, userConfig.provider)
+                                    .replaceAll(/outputfiletitle/g, userConfig.file_prefix + index)
+                                    .replaceAll(/text/g, safeText);
+                                console.log(`Running command: ${runCMD}`);
+
+                                await new Promise((resolve, reject) => {
+                                    const process = spawn(runCMD, { shell: true });
+
+                                    process.stderr.on('data', (data) => {
+                                        const errorLog = data.toString();
+                                        if (errorLog.includes("Saved to")) {
+                                            console.log(`Chunk ${index} processed successfully.`);
+                                            let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+                                            metadata[id].processingStatus = `Processing. ${index + 1}/${count}`;
+                                            fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+                                        }
+                                        if (!errorLog.includes("Context leak detected, msgtracer returned -1")) {
+                                            console.error(`STDERR: ${errorLog}`);
+                                        }
+                                    });
+
+                                    process.on('close', (code) => {
+                                        console.log(`Process exited with code ${code}`);
+                                        resolve();
+                                    });
+
+                                    process.on('error', (err) => {
+                                        console.error('Error during chunk processing:', err);
+                                        reject(err);
+                                    });
+                                });
+                            } catch (error) {
+                                console.error('Error during chunk processing:', error);
+                                const chunkDir = path.join(pdfAudDir, id.replace('.pdf', ''));
+                                if (fs.existsSync(chunkDir)) {
+                                    fs.rmSync(chunkDir, { recursive: true, force: true });
+                                    console.log(`Removed directory: ${chunkDir}`);
+                                }
+                                let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+                                metadata[id].processingStatus = `Not Processed`;
+                                fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+                            }
+                        }
+                        // After all chunks processed, update metadata size to include all files
+                        let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
+                        const pdfPath = path.join(pdfDir, id);
+                        let totalSize = 0;
+                        if (fs.existsSync(pdfPath)) {
+                            totalSize += fs.statSync(pdfPath).size;
+                        }
+                        const pdfIdNoExt = id.replace(/\.pdf$/, '');
+                        const chunkDir = path.join(pdfAudDir, pdfIdNoExt);
+                        const chunksFilePath = path.join(chunkDir, "pdf_chunks.json");
+                        if (fs.existsSync(chunksFilePath)) {
+                            totalSize += fs.statSync(chunksFilePath).size;
+                        }
+                        if (fs.existsSync(chunkDir)) {
+                            const audioFiles = fs.readdirSync(chunkDir).filter(f => f.endsWith('.wav'));
+                            for (const audioFile of audioFiles) {
+                                const audioPath = path.join(chunkDir, audioFile);
+                                if (fs.existsSync(audioPath)) {
+                                    totalSize += fs.statSync(audioPath).size;
+                                }
+                            }
+                        }
+                        metadata[id].fileSize = totalSize;
+                        metadata[id].processingStatus = `Processed`;
+                        fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
+                    })();
+                }
+            } catch (err) {
+                console.error("Error counting PDF chunks:", err);
+            }
         }).catch((err) => {
             console.error("Error processing PDF document:", err);
+            res.status(500).send('Error processing PDF document');
         });
     } catch (err) {
         console.error("Failed to read PDF file:", err);
-    }
-
-    let metadata = JSON.parse(fs.readFileSync(metadataFilePath, 'utf8'));
-    metadata[id].processingStatus = "Processing";
-    fs.writeFileSync(metadataFilePath, JSON.stringify(metadata, null, 4));
-
-    try {
-        const chunksFilePath = path.join(outputDir, "pdf_chunks.json");
-        if (fs.existsSync(chunksFilePath)) {
-            const chunksData = JSON.parse(fs.readFileSync(chunksFilePath, "utf8"));
-            const count = chunksData.length;
-            console.log(`PDF processing complete - Total chunks: ${count}`);
-            res.status(200).send(`{"chuncks":${count}}`);
-        }
-    } catch (err) {
-        console.error("Error counting PDF chunks:", err);
+        res.status(500).send('Failed to read PDF file');
     }
 })
+
+expressApp.get('/get_pdf_chunks', (req, res) => {
+    const { id } = req.query;
+    // Validate id
+    if (!id || !/^[A-Za-z0-9_.-]+$/.test(id)) {
+        return res.status(400).send('Invalid id');
+    }
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfAudDir = path.join(modifiedUserDir, 'OutputFiles/PDF');
+    const outputDir = path.join(pdfAudDir, id.replace('.pdf', ''));
+    const chunksFilePath = path.join(outputDir, "pdf_chunks.json");
+
+    if (!fs.existsSync(chunksFilePath)) {
+        return res.status(404).send('Chunks not found');
+    }
+
+    try {
+        const chunks = JSON.parse(fs.readFileSync(chunksFilePath, 'utf8'));
+        res.json(chunks);
+    } catch (e) {
+        console.error('Error reading chunks:', e);
+        res.status(500).send('Error reading chunks');
+    }
+});
+
+expressApp.get('/get_pdf', (req, res) => {
+    const { id } = req.query;
+    // Validate id
+    if (!id || !/^[A-Za-z0-9_.-]+$/.test(id)) {
+        return res.status(400).send('Invalid id');
+    }
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const pdfDir = path.join(modifiedUserDir, 'UserContent/PDF');
+    const filePath = path.join(pdfDir, id);
+
+    if (!fs.existsSync(filePath)) {
+        return res.status(404).send('PDF not found');
+    }
+
+    res.set('Content-Type', 'application/pdf');
+    fs.createReadStream(filePath).pipe(res);
+});
+
+expressApp.get('/get_pdf_audio', (req, res) => {
+    const { id, chunk } = req.query;
+    // Validate id and chunk
+    if (!id || !/^[A-Za-z0-9_.-]+$/.test(id)) {
+        return res.status(400).send('Invalid id');
+    }
+    if (typeof chunk === 'undefined' || !/^\d+$/.test(chunk)) {
+        return res.status(400).send('Invalid chunk');
+    }
+    const modifiedUserDir = userDir.replace('\\ ', ' ');
+    const configFilePath = path.join(modifiedUserDir, 'UserContent/config.json');
+    let userConfig;
+    try {
+        userConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf8'));
+    } catch (e) {
+        console.error('Error reading user config:', e);
+        return res.status(500).send('Error reading user config');
+    }
+
+    // The audio files are stored in OutputFiles/PDF/<pdf_id_without_ext>/<file_prefix><chunk>.wav
+    const pdfIdNoExt = id.replace(/\.pdf$/, '');
+    const filePath = path.join(
+        modifiedUserDir,
+        'OutputFiles',
+        'PDF',
+        pdfIdNoExt,
+        `${userConfig.file_prefix}${chunk}.wav`
+    );
+    console.log(`Attempting to read PDF audio file at path: ${filePath}`);
+
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            if (err.code === 'ENOENT') {
+                console.error(`Error: File not found at path: ${filePath}`);
+                res.status(404).send('Error: File not found');
+            } else {
+                console.error(`Error reading PDF audio file at path: ${filePath}, Error: ${err.message}`);
+                res.status(500).send('Error reading PDF audio');
+            }
+            return;
+        }
+        console.log(`Successfully read PDF audio file at path: ${filePath}`);
+        res.set('Content-Type', 'audio/wav');
+        res.send(data);
+    });
+});
 
 app.on('ready', createMainWindow);

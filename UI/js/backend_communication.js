@@ -179,3 +179,45 @@ communicator.start_pdf_processing = async function (id) {
         return null;
     }
 }
+
+communicator.get_pdf_chunks = async function (id) {
+    try {
+        const response = await fetch(`http://localhost:${port}/get_pdf_chunks?id=${encodeURIComponent(id)}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch PDF chunks');
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error fetching PDF chunks:', error);
+        return null;
+    }
+}
+
+communicator.get_pdf = async function (id) {
+    try {
+        const response = await fetch(`http://localhost:${port}/get_pdf?id=${encodeURIComponent(id)}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch PDF');
+        }
+        const blob = await response.blob();
+        return blob;
+    } catch (error) {
+        console.error('Error fetching PDF:', error);
+        return null;
+    }
+}
+
+communicator.get_pdf_audio = async function (id, chunk) {
+    try {
+        const response = await fetch(`http://localhost:${port}/get_pdf_audio?id=${encodeURIComponent(id)}&chunk=${encodeURIComponent(chunk)}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch PDF audio');
+        }
+        const blob = await response.blob();
+        return blob;
+    } catch (error) {
+        console.error('Error fetching PDF audio:', error);
+        return null;
+    }
+}
