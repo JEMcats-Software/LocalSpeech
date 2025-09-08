@@ -58,7 +58,7 @@
     "adm-zip": "^0.5.16",
     "axios": "^1.8.4",
     "express": "^5.1.0",
-    "express-rate-limit": "^7.5.0",
+    "express-rate-limit": "^8.1.0",
     "uuid": "^11.1.0",
     "ws": "^8.18.1"
   }
